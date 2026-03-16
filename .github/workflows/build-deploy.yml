@@ -1,0 +1,109 @@
+name: Build and Deploy MiroFish
+
+on:
+  push:
+    branches: [main, feat/**]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  HARBOR_REGISTRY: harbor.spooty.io
+  IMAGE_NAME: library/mirofish
+
+jobs:
+  build-and-push:
+    name: Build and Push Multiarch Image
+    runs-on: stax-builder
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Harbor
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.HARBOR_REGISTRY }}
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.HARBOR_REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push multiarch image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.multiarch
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.HARBOR_REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
+          cache-to: type=registry,ref=${{ env.HARBOR_REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
+
+  test:
+    name: Run Tests
+    runs-on: stax-python
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          uv sync
+
+      - name: Run backend tests
+        working-directory: backend
+        run: |
+          uv run pytest
+
+  deploy:
+    name: Deploy to Cluster
+    needs: [build-and-push, test]
+    runs-on: stax-general
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout infrastructure repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/stax
+          path: stax
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Set up Pulumi
+        uses: pulumi/actions@v5
+        with:
+          pulumi-version: latest
+
+      - name: Deploy with Pulumi
+        working-directory: stax/pulumi
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+        run: |
+          pulumi stack select stax-stack-08-ai
+          pulumi up --yes --skip-preview

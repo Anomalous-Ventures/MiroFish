@@ -1,0 +1,77 @@
+# MiroFish Multiarch Dockerfile (linux/amd64,linux/arm64)
+# Swarm Intelligence Prediction Engine
+
+FROM python:3.11-slim-bookworm AS backend-builder
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv for faster Python package management
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+
+WORKDIR /app/backend
+
+# Copy backend dependencies
+COPY backend/pyproject.toml backend/uv.lock ./
+
+# Install Python dependencies using uv
+RUN uv sync --frozen --no-dev
+
+# Frontend builder stage
+FROM node:18-slim AS frontend-builder
+
+WORKDIR /app/frontend
+
+# Copy frontend package files
+COPY frontend/package*.json ./
+
+# Install frontend dependencies
+RUN npm ci --only=production
+
+# Copy frontend source
+COPY frontend/ ./
+
+# Build frontend
+RUN npm run build
+
+# Final production stage
+FROM python:3.11-slim-bookworm
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy Python environment from builder
+COPY --from=backend-builder /app/backend/.venv /app/backend/.venv
+ENV PATH="/app/backend/.venv/bin:$PATH"
+
+# Copy backend application
+COPY backend/ ./backend/
+
+# Copy built frontend from builder
+COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
+
+# Create directories for data persistence
+RUN mkdir -p /app/data/projects /app/data/simulations
+
+# Environment variables
+ENV FLASK_APP=backend/run.py
+ENV FLASK_ENV=production
+ENV PYTHONUNBUFFERED=1
+
+# Expose ports
+EXPOSE 5001 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:5001/health', timeout=5)"
+
+# Start both frontend and backend
+CMD ["python", "backend/run.py"]
