@@ -13,8 +13,12 @@ flask-cors>=6.0.0
 # OpenAI SDK（统一使用 OpenAI 格式调用 LLM）
 openai>=1.0.0
 
-# ============= Zep Cloud =============
-zep-cloud==3.13.0
+# ============= Memory Storage =============
+# Qdrant for vector memory (replaces Zep Cloud)
+qdrant-client>=1.7.0
+
+# Legacy Zep support (optional fallback)
+# zep-cloud==3.13.0
 
 # ============= OASIS 社交媒体模拟 =============
 # OASIS 社交模拟框架
