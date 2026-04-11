@@ -1,203 +1,119 @@
-<div align="center">
+# MiroFish
 
-<img src="./static/image/MiroFish_logo_compressed.jpeg" alt="MiroFish Logo" width="75%"/>
+A simple and universal swarm intelligence engine, predicting anything.
 
-<a href="https://trendshift.io/repositories/16144" target="_blank"><img src="https://trendshift.io/api/badge/repositories/16144" alt="666ghj%2FMiroFish | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+> Upstream: [666ghj/MiroFish](https://github.com/666ghj/MiroFish). This is an Anomalous Ventures mirror; see [`README-EN.md`](./README-EN.md) for the upstream English README and [`DEPLOYMENT_*.md`](./DEPLOYMENT_STATUS.md) notes for local deployment history.
 
-简洁通用的群体智能引擎，预测万物
-</br>
-<em>A Simple and Universal Swarm Intelligence Engine, Predicting Anything</em>
+## Table of Contents
 
-<a href="https://www.shanda.com/" target="_blank"><img src="./static/image/shanda_logo.png" alt="666ghj%2MiroFish | Shanda" height="40"/></a>
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Quick Start](#quick-start)
+- [Development](#development)
+- [Testing](#testing)
+- [Deployment](#deployment)
+- [Sub-Modules](#sub-modules)
 
-[![GitHub Stars](https://img.shields.io/github/stars/666ghj/MiroFish?style=flat-square&color=DAA520)](https://github.com/666ghj/MiroFish/stargazers)
-[![GitHub Watchers](https://img.shields.io/github/watchers/666ghj/MiroFish?style=flat-square)](https://github.com/666ghj/MiroFish/watchers)
-[![GitHub Forks](https://img.shields.io/github/forks/666ghj/MiroFish?style=flat-square)](https://github.com/666ghj/MiroFish/network)
-[![Docker](https://img.shields.io/badge/Docker-Build-2496ED?style=flat-square&logo=docker&logoColor=white)](https://hub.docker.com/)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/666ghj/MiroFish)
+## Overview
 
-[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.com/channels/1469200078932545606/1469201282077163739)
-[![X](https://img.shields.io/badge/X-Follow-000000?style=flat-square&logo=x&logoColor=white)](https://x.com/mirofish_ai)
-[![Instagram](https://img.shields.io/badge/Instagram-Follow-E4405F?style=flat-square&logo=instagram&logoColor=white)](https://www.instagram.com/mirofish_ai/)
+MiroFish ingests seed materials (news, reports, narratives) and spins up a population of LLM-backed agents with persistent memory. Agents interact inside an OASIS-driven parallel digital world, and a ReportAgent distills the emergent behavior into a prediction report. Users can inject variables mid-run and chat with any agent post-simulation.
 
-[English](./README-EN.md) | [中文文档](./README.md)
+Pipeline stages (mirrored by the frontend `Step1..Step5` components):
 
-</div>
+1. Graph build - seed extraction, memory injection, GraphRAG construction.
+2. Environment setup - entity extraction, persona generation, agent config.
+3. Simulation - dual-platform (Reddit / Twitter) parallel OASIS runs with dynamic memory updates.
+4. Report - ReportAgent synthesis with tool-augmented analysis.
+5. Interaction - chat with any agent or with the ReportAgent.
 
-## ⚡ 项目概述
+## Architecture
 
-**MiroFish** 是一款基于多智能体技术的新一代 AI 预测引擎。通过提取现实世界的种子信息（如突发新闻、政策草案、金融信号），自动构建出高保真的平行数字世界。在此空间内，成千上万个具备独立人格、长期记忆与行为逻辑的智能体进行自由交互与社会演化。你可透过「上帝视角」动态注入变量，精准推演未来走向——**让未来在数字沙盘中预演，助决策在百战模拟后胜出**。
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'background':'#0f0524','primaryColor':'#2d1b69','primaryTextColor':'#f5f3ff','primaryBorderColor':'#a78bfa','lineColor':'#c4b5fd','secondaryColor':'#1e1b4b','tertiaryColor':'#312e81','clusterBkg':'#1e1b4b','clusterBorder':'#7c3aed','edgeLabelBackground':'#2d1b69','fontFamily':'ui-monospace,monospace'}}}%%
+flowchart LR
+    subgraph Inputs["Inputs"]
+        SEED[Seed materials<br/>PDF / text / reports]
+        PROMPT[Prediction prompt<br/>natural language]
+    end
 
-> 你只需：上传种子材料（数据分析报告或者有趣的小说故事），并用自然语言描述预测需求</br>
-> MiroFish 将返回：一份详尽的预测报告，以及一个可深度交互的高保真数字世界
+    subgraph Frontend["Vue 3 SPA (:3000)"]
+        UI[Step1..Step5 wizard<br/>GraphPanel / History]
+    end
 
-### 我们的愿景
+    subgraph Backend["Flask API (:5001)"]
+        GRAPH[graph_bp<br/>GraphRAG build]
+        SIM[simulation_bp<br/>OASIS runner]
+        REPORT[report_bp<br/>ReportAgent]
+    end
 
-MiroFish 致力于打造映射现实的群体智能镜像，通过捕捉个体互动引发的群体涌现，突破传统预测的局限：
+    subgraph Engine["Swarm Engine"]
+        OASIS[camel-oasis<br/>agent population]
+        ZEP[Zep Cloud<br/>long-term memory]
+        LLM[LLM API<br/>OpenAI-compatible]
+    end
 
-- **于宏观**：我们是决策者的预演实验室，让政策与公关在零风险中试错
-- **于微观**：我们是个人用户的创意沙盘，无论是推演小说结局还是探索脑洞，皆可有趣、好玩、触手可及
+    subgraph Outputs["Predictions"]
+        RPT[Prediction report]
+        WORLD[Interactive digital world]
+    end
 
-从严肃预测到趣味仿真，我们让每一个如果都能看见结果，让预测万物成为可能。
+    SEED --> UI
+    PROMPT --> UI
+    UI <--> GRAPH
+    UI <--> SIM
+    UI <--> REPORT
 
-## 🌐 在线体验
+    GRAPH --> ZEP
+    SIM --> OASIS
+    OASIS --> LLM
+    OASIS --> ZEP
+    REPORT --> LLM
+    REPORT --> ZEP
 
-欢迎访问在线 Demo 演示环境，体验我们为你准备的一次关于热点舆情事件的推演预测：[mirofish-live-demo](https://666ghj.github.io/mirofish-demo/)
+    REPORT --> RPT
+    SIM --> WORLD
+    RPT --> UI
+    WORLD --> UI
+```
 
-## 📸 系统截图
+Flask (`backend/app/__init__.py`) registers three blueprints under `/api/{graph,simulation,report}` plus `/health`, and serves the built Vue bundle from `frontend/dist` as an SPA fallback.
 
-<div align="center">
-<table>
-<tr>
-<td><img src="./static/image/Screenshot/运行截图1.png" alt="截图1" width="100%"/></td>
-<td><img src="./static/image/Screenshot/运行截图2.png" alt="截图2" width="100%"/></td>
-</tr>
-<tr>
-<td><img src="./static/image/Screenshot/运行截图3.png" alt="截图3" width="100%"/></td>
-<td><img src="./static/image/Screenshot/运行截图4.png" alt="截图4" width="100%"/></td>
-</tr>
-<tr>
-<td><img src="./static/image/Screenshot/运行截图5.png" alt="截图5" width="100%"/></td>
-<td><img src="./static/image/Screenshot/运行截图6.png" alt="截图6" width="100%"/></td>
-</tr>
-</table>
-</div>
+## Quick Start
 
-## 🎬 演示视频
-
-### 1. 武汉大学舆情推演预测 + MiroFish项目讲解
-
-<div align="center">
-<a href="https://www.bilibili.com/video/BV1VYBsBHEMY/" target="_blank"><img src="./static/image/武大模拟演示封面.png" alt="MiroFish Demo Video" width="75%"/></a>
-
-点击图片查看使用微舆BettaFish生成的《武大舆情报告》进行预测的完整演示视频
-</div>
-
-### 2. 《红楼梦》失传结局推演预测
-
-<div align="center">
-<a href="https://www.bilibili.com/video/BV1cPk3BBExq" target="_blank"><img src="./static/image/红楼梦模拟推演封面.jpg" alt="MiroFish Demo Video" width="75%"/></a>
-
-点击图片查看基于《红楼梦》前80回数十万字，MiroFish深度预测失传结局
-</div>
-
-> **金融方向推演预测**、**时政要闻推演预测**等示例陆续更新中...
-
-## 🔄 工作流程
-
-1. **图谱构建**：现实种子提取 & 个体与群体记忆注入 & GraphRAG构建
-2. **环境搭建**：实体关系抽取 & 人设生成 & 环境配置Agent注入仿真参数
-3. **开始模拟**：双平台并行模拟 & 自动解析预测需求 & 动态更新时序记忆
-4. **报告生成**：ReportAgent拥有丰富的工具集与模拟后环境进行深度交互
-5. **深度互动**：与模拟世界中的任意一位进行对话 & 与ReportAgent进行对话
-
-## 🚀 快速开始
-
-### 一、源码部署（推荐）
-
-#### 前置要求
-
-| 工具 | 版本要求 | 说明 | 安装检查 |
-|------|---------|------|---------|
-| **Node.js** | 18+ | 前端运行环境，包含 npm | `node -v` |
-| **Python** | ≥3.11, ≤3.12 | 后端运行环境 | `python --version` |
-| **uv** | 最新版 | Python 包管理器 | `uv --version` |
-
-#### 1. 配置环境变量
+Prereqs: Node.js 18+, Python 3.11-3.12, [`uv`](https://docs.astral.sh/uv/).
 
 ```bash
-# 复制示例配置文件
-cp .env.example .env
-
-# 编辑 .env 文件，填入必要的 API 密钥
+cp .env.example .env      # fill LLM_API_KEY, LLM_BASE_URL, LLM_MODEL_NAME, ZEP_API_KEY
+npm run setup:all         # installs root + frontend (npm) + backend (uv sync)
+npm run dev               # concurrently runs backend:5001 and frontend:3000
 ```
 
-**必需的环境变量：**
+Individual services: `npm run backend`, `npm run frontend`.
 
-```env
-# LLM API配置（支持 OpenAI SDK 格式的任意 LLM API）
-# 推荐使用阿里百炼平台qwen-plus模型：https://bailian.console.aliyun.com/
-# 注意消耗较大，可先进行小于40轮的模拟尝试
-LLM_API_KEY=your_api_key
-LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-LLM_MODEL_NAME=qwen-plus
+## Development
 
-# Zep Cloud 配置
-# 每月免费额度即可支撑简单使用：https://app.getzep.com/
-ZEP_API_KEY=your_zep_api_key
-```
+- Backend: Flask 3, OpenAI SDK, `camel-oasis==0.2.5`, `camel-ai==0.2.78`, `zep-cloud==3.13.0`, Pydantic, PyMuPDF. See [`backend/README.md`](backend/README.md).
+- Frontend: Vue 3 + Vite, per-step components and views under `frontend/src/`. See [`frontend/README.md`](frontend/README.md).
+- Standalone experiments: `backend/scripts/run_parallel_simulation.py`, `run_reddit_simulation.py`, `run_twitter_simulation.py`.
+- Config surface: `backend/app/config.py` + `config_infrastructure.py`, env-loaded via `python-dotenv`.
 
-#### 2. 安装依赖
+## Testing
 
-```bash
-# 一键安装所有依赖（根目录 + 前端 + 后端）
-npm run setup:all
-```
+`pytest` / `pytest-asyncio` are declared in `backend/pyproject.toml` under the `dev` group; no top-level test suite is included in-tree. Add tests under `backend/tests/` and run with `uv run pytest`.
 
-或者分步安装：
+## Deployment
 
-```bash
-# 安装 Node 依赖（根目录 + 前端）
-npm run setup
+- Docker: `docker compose up -d` pulls `ghcr.io/666ghj/mirofish:latest`, reads `.env`, exposes `3000` and `5001`, mounts `backend/uploads`.
+- Source images: `Dockerfile` and `Dockerfile.multiarch` at repo root.
+- CI: `.github/workflows/build-deploy.yml` and `docker-image.yml`.
+- Operational notes from prior deploys live in `DEPLOYMENT_NOTE.md`, `DEPLOYMENT_PLAN.md`, `DEPLOYMENT_STATUS.md`, `DEPLOYMENT_STATUS_CURRENT.md`, `INTEGRATION.md`, `SESSION_SUMMARY.md`.
 
-# 安装 Python 依赖（后端，自动创建虚拟环境）
-npm run setup:backend
-```
+## Sub-Modules
 
-#### 3. 启动服务
+- [`backend/`](backend/README.md) - Flask API, OASIS simulation runner, GraphRAG + Zep memory, ReportAgent.
+- [`frontend/`](frontend/README.md) - Vue 3 + Vite SPA wizard driving the graph / simulation / report pipeline.
+- [`static/`](static/README.md) - Logos, screenshots, and demo assets referenced by docs.
 
-```bash
-# 同时启动前后端（在项目根目录执行）
-npm run dev
-```
+## License
 
-**服务地址：**
-- 前端：`http://localhost:3000`
-- 后端 API：`http://localhost:5001`
-
-**单独启动：**
-
-```bash
-npm run backend   # 仅启动后端
-npm run frontend  # 仅启动前端
-```
-
-### 二、Docker 部署
-
-```bash
-# 1. 配置环境变量（同源码部署）
-cp .env.example .env
-
-# 2. 拉取镜像并启动
-docker compose up -d
-```
-
-默认会读取根目录下的 `.env`，并映射端口 `3000（前端）/5001（后端）`
-
-> 在 `docker-compose.yml` 中已通过注释提供加速镜像地址，可按需替换
-
-## 📬 更多交流
-
-<div align="center">
-<img src="./static/image/QQ群.png" alt="QQ交流群" width="60%"/>
-</div>
-
-&nbsp;
-
-MiroFish团队长期招募全职/实习，如果你对多Agent应用感兴趣，欢迎投递简历至：**mirofish@shanda.com**
-
-## 📄 致谢
-
-**MiroFish 得到了盛大集团的战略支持和孵化！**
-
-MiroFish 的仿真引擎由 **[OASIS](https://github.com/camel-ai/oasis)** 驱动，我们衷心感谢 CAMEL-AI 团队的开源贡献！
-
-## 📈 项目统计
-
-<a href="https://www.star-history.com/#666ghj/MiroFish&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=666ghj/MiroFish&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=666ghj/MiroFish&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=666ghj/MiroFish&type=date&legend=top-left" />
- </picture>
-</a>
+AGPL-3.0. See [`LICENSE`](./LICENSE).
