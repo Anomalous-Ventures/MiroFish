@@ -30,7 +30,7 @@ dependencies = [
     "chardet>=5.0.0",
     
     # 工具库
-    "python-dotenv>=1.0.0",
+    "python-dotenv>=1.2.2",
     "pydantic>=2.0.0",
 ]
 
