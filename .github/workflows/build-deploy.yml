@@ -105,7 +105,7 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Set up Pulumi
-        uses: pulumi/actions@c94f32c1f0eb10983a8f04e8691c106d9620a28d # v5.6.0
+        uses: pulumi/actions@8582a9e8cc630786854029b4e09281acd6794b58 # v6.6.1
         with:
           pulumi-version: latest
 
