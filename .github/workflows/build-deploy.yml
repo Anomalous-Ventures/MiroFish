@@ -15,6 +15,8 @@ jobs:
   build-and-push:
     name: Build and Push Multiarch Image
     runs-on: stax-builder
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}
     permissions:
       contents: read
       packages: write
@@ -45,6 +47,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push multiarch image
+        id: image
         uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6.9.0
         with:
           context: .
@@ -81,8 +84,8 @@ jobs:
         run: |
           uv run pytest
 
-  deploy:
-    name: Deploy to Cluster
+  promote-gitops:
+    name: Promote image through ArgoCD GitOps
     needs: [build-and-push, test]
     runs-on: stax-general
     if: github.ref == 'refs/heads/main'
@@ -95,24 +98,74 @@ jobs:
           app-id: ${{ vars.GH_APP_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
-          repositories: stax
+          repositories: apps
 
-      - name: Checkout infrastructure repo
+      - name: Checkout apps repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          repository: ${{ github.repository_owner }}/stax
-          path: stax
+          repository: ${{ github.repository_owner }}/apps
+          path: apps
           token: ${{ steps.app-token.outputs.token }}
 
-      - name: Set up Pulumi
-        uses: pulumi/actions@8582a9e8cc630786854029b4e09281acd6794b58 # v6.6.1
-        with:
-          pulumi-version: latest
-
-      - name: Deploy with Pulumi
-        working-directory: stax/pulumi
+      - name: Promote immutable image to apps repo
+        working-directory: apps
         env:
-          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          IMAGE_DIGEST: ${{ needs.build-and-push.outputs.digest }}
         run: |
-          pulumi stack select stax-stack-08-ai
-          pulumi up --yes --skip-preview
+          test -n "$IMAGE_DIGEST"
+          mkdir -p deployments/08-ai/llm/mirofish
+          cat > deployments/08-ai/llm/mirofish/kustomization.yaml <<'EOF'
+          apiVersion: kustomize.config.k8s.io/v1beta1
+          kind: Kustomization
+          resources: [deployment.yaml, service.yaml]
+          EOF
+          cat > deployments/08-ai/llm/mirofish/deployment.yaml <<EOF
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: mirofish
+            labels:
+              app: mirofish
+              app.kubernetes.io/instance: 08-ai-llm-mirofish
+          spec:
+            replicas: 1
+            selector:
+              matchLabels: {app: mirofish}
+            template:
+              metadata:
+                labels:
+                  app: mirofish
+                  app.kubernetes.io/instance: 08-ai-llm-mirofish
+              spec:
+                imagePullSecrets: [{name: harbor-pull-secret}]
+                containers:
+                  - name: mirofish
+                    image: ${HARBOR_REGISTRY}/${IMAGE_NAME}@${IMAGE_DIGEST}
+                    ports: [{name: http, containerPort: 5001}]
+                    env:
+                      - {name: FLASK_ENV, value: production}
+                      - {name: FLASK_DEBUG, value: "0"}
+                      - {name: FLASK_APP, value: backend/run.py}
+                      - {name: DATA_DIR, value: /data}
+                      - {name: USE_ZEP, value: "false"}
+                      - {name: LITELLM_BASE_URL, value: http://control-plane.aegis-ai.svc.cluster.local:8080/v1}
+                      - {name: LITELLM_API_KEY, value: sk-internal}
+                      - {name: LITELLM_MODEL, value: qwen35-coder}
+                    readinessProbe: {httpGet: {path: /health, port: http}, initialDelaySeconds: 20}
+                    livenessProbe: {httpGet: {path: /health, port: http}, initialDelaySeconds: 45}
+                    volumeMounts: [{name: data, mountPath: /data}]
+                volumes: [{name: data, emptyDir: {}}]
+          EOF
+          cat > deployments/08-ai/llm/mirofish/service.yaml <<'EOF'
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: mirofish-backend
+            labels: {app: mirofish, app.kubernetes.io/instance: 08-ai-llm-mirofish}
+          spec:
+            selector: {app: mirofish}
+            ports: [{name: http, port: 5001, targetPort: http}]
+          EOF
+          git add deployments/08-ai/llm/mirofish
+          git commit -m "feat: promote MiroFish image through ArgoCD"
+          git push origin HEAD:main
