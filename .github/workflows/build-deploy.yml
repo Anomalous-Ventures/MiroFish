@@ -51,7 +51,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile.multiarch
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -60,7 +60,7 @@ jobs:
 
   test:
     name: Run Tests
-    runs-on: stax-general
+    runs-on: stax-builder
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
