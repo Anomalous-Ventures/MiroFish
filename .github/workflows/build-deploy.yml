@@ -97,6 +97,16 @@ jobs:
       contents: read
 
     steps:
+      - name: Mint Apps checks reader token
+        id: checks-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ vars.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: apps
+          permission-checks: read
+
       - name: Checkout apps repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -134,6 +144,7 @@ jobs:
       - name: Create validated GitOps image PR
         working-directory: apps
         env:
+          CHECKS_TOKEN: ${{ steps.checks-token.outputs.token }}
           GH_TOKEN: ${{ secrets.APPS_GITOPS_TOKEN }}
           PINNED_IMAGE: ${{ env.HARBOR_REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-and-push.outputs.digest }}
         run: |
@@ -171,7 +182,7 @@ jobs:
           deadline=$((SECONDS + 600))
           while (( SECONDS < deadline )); do
             # shellcheck disable=SC2016
-            check_line="$(gh api "repos/Anomalous-Ventures/apps/commits/${head_sha}/check-runs" \
+            check_line="$(GH_TOKEN="$CHECKS_TOKEN" gh api "repos/Anomalous-Ventures/apps/commits/${head_sha}/check-runs" \
               --jq '([.check_runs[] | select(.name == "Kustomize and static policy")] | sort_by(.started_at // "") | last) as $run | if $run == null then "" else [$run.status, ($run.conclusion // ""), $run.html_url] | @tsv end')"
             if [[ -n "$check_line" ]]; then
               IFS=$'\t' read -r check_status check_conclusion check_url <<< "$check_line"
