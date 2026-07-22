@@ -33,6 +33,7 @@ class Config:
     LLM_MODEL_NAME = os.environ.get('LLM_MODEL_NAME', 'gpt-4o-mini')
     
     # Zep配置
+    USE_ZEP = os.environ.get('USE_ZEP', 'true').lower() == 'true'
     ZEP_API_KEY = os.environ.get('ZEP_API_KEY')
     
     # 文件上传配置
@@ -69,7 +70,6 @@ class Config:
         errors = []
         if not cls.LLM_API_KEY:
             errors.append("LLM_API_KEY 未配置")
-        if not cls.ZEP_API_KEY:
+        if cls.USE_ZEP and not cls.ZEP_API_KEY:
             errors.append("ZEP_API_KEY 未配置")
         return errors
-

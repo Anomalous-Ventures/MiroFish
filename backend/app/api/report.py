@@ -9,6 +9,7 @@ import threading
 from flask import request, jsonify, send_file
 
 from . import report_bp
+from .zep_guard import require_zep
 from ..config import Config
 from ..services.report_agent import ReportAgent, ReportManager, ReportStatus
 from ..services.simulation_manager import SimulationManager
@@ -22,6 +23,7 @@ logger = get_logger('mirofish.api.report')
 # ============== 报告生成接口 ==============
 
 @report_bp.route('/generate', methods=['POST'])
+@require_zep
 def generate_report():
     """
     生成模拟分析报告（异步任务）
@@ -465,6 +467,7 @@ def delete_report(report_id: str):
 # ============== Report Agent对话接口 ==============
 
 @report_bp.route('/chat', methods=['POST'])
+@require_zep
 def chat_with_report_agent():
     """
     与Report Agent对话
@@ -928,6 +931,7 @@ def stream_console_log(report_id: str):
 # ============== 工具调用接口（供调试使用）==============
 
 @report_bp.route('/tools/search', methods=['POST'])
+@require_zep
 def search_graph_tool():
     """
     图谱搜索工具接口（供调试使用）
@@ -976,6 +980,7 @@ def search_graph_tool():
 
 
 @report_bp.route('/tools/statistics', methods=['POST'])
+@require_zep
 def get_graph_statistics_tool():
     """
     图谱统计工具接口（供调试使用）
