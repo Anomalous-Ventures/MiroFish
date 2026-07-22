@@ -9,6 +9,7 @@ import threading
 from flask import request, jsonify
 
 from . import graph_bp
+from .zep_guard import require_zep
 from ..config import Config
 from ..services.ontology_generator import OntologyGenerator
 from ..services.graph_builder import GraphBuilderService
@@ -257,6 +258,7 @@ def generate_ontology():
 # ============== 接口2：构建图谱 ==============
 
 @graph_bp.route('/build', methods=['POST'])
+@require_zep
 def build_graph():
     """
     接口2：根据project_id构建图谱
@@ -562,6 +564,7 @@ def list_tasks():
 # ============== 图谱数据接口 ==============
 
 @graph_bp.route('/data/<graph_id>', methods=['GET'])
+@require_zep
 def get_graph_data(graph_id: str):
     """
     获取图谱数据（节点和边）
@@ -590,6 +593,7 @@ def get_graph_data(graph_id: str):
 
 
 @graph_bp.route('/delete/<graph_id>', methods=['DELETE'])
+@require_zep
 def delete_graph(graph_id: str):
     """
     删除Zep图谱
