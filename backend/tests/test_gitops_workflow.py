@@ -14,5 +14,7 @@ def test_gitops_promotion_is_digest_only_and_pr_gated():
     assert "Kustomize and static policy" in source
     assert 'gh pr merge "$pr_number"' in source
     assert "APPS_GITOPS_TOKEN" in source
-    assert "create-github-app-token" not in source
+    assert "permission-checks: read" in source
+    assert "permission-contents: write" not in source
+    assert 'GH_TOKEN="$CHECKS_TOKEN" gh api' in source
     assert "contents: read" in source
